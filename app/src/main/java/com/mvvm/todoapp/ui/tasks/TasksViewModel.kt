@@ -1,8 +1,6 @@
 package com.mvvm.todoapp.ui.tasks
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.asLiveData
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.*
 import com.mvvm.todoapp.data.PreferencesManager
 import com.mvvm.todoapp.data.SortOrder
 import com.mvvm.todoapp.data.Task
@@ -19,11 +17,13 @@ import javax.inject.Inject
 @HiltViewModel
 class TasksViewModel @Inject constructor(
     private val taskDao: TaskDao,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val state: SavedStateHandle
 ) : ViewModel() {
 
 
-    val searchQuery = MutableStateFlow("")
+    //val searchQuery = MutableStateFlow("")
+    val searchQuery = state.getLiveData("searchQuery","")
 
     val preferencesFlow = preferencesManager.preferencesFlow
 
@@ -31,7 +31,7 @@ class TasksViewModel @Inject constructor(
     val tasksEvent = tasksEventChannel.receiveAsFlow()
 
     private val tasksFlow = combine(
-        searchQuery,
+        searchQuery.asFlow(),
         preferencesFlow
     ){ query,filterpreferences ->
         Pair(query,filterpreferences)
@@ -55,9 +55,7 @@ class TasksViewModel @Inject constructor(
         }
     }
 
-    fun onTaskSelected(task: Task){
 
-    }
 
     fun onTaskCheckedChanged(task: Task,isChecked: Boolean){
         viewModelScope.launch {
@@ -78,10 +76,26 @@ class TasksViewModel @Inject constructor(
         }
     }
 
+    fun onAddNewTaskClick(){
+        viewModelScope.launch {
+            tasksEventChannel.send(TasksEvent.NavigateToAddTaskScreen)
+        }
+    }
+
+    fun onTaskSelected(task: Task){
+        viewModelScope.launch {
+            tasksEventChannel.send(TasksEvent.NavigateToEditTaskScreen(task))
+        }
+    }
+
 
     sealed class TasksEvent{
 
+        object NavigateToAddTaskScreen : TasksEvent()
+
+        data class NavigateToEditTaskScreen(val task: Task) : TasksEvent()
         data class ShowUndoDeleteTaskMessage(val task: Task) : TasksEvent()
+
     }
 
 
